@@ -1,0 +1,156 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+apiVersion: v2
+name: solr-operator
+description: The Solr Operator enables easy management of Solr resources within Kubernetes.
+version: 0.7.0-prerelease
+appVersion: v0.7.0-prerelease
+kubeVersion: ">= 1.19.0-0"
+home: https://solr.apache.org/operator
+sources:
+  - https://github.com/apache/solr-operator
+keywords:
+  - solr
+  - apache
+  - search
+  - lucene
+  - operator
+maintainers:
+  - name: Solr Dev Community
+    email: dev@solr.apache.org
+  - name: Houston Putman
+    email: houston@apache.org
+icon: https://solr.apache.org/theme/images/identity/Solr_Logo_on_white.png
+dependencies:
+  - name: 'zookeeper-operator'
+    version: 0.2.14
+    repository: https://charts.pravega.io
+    condition: zookeeper-operator.install
+annotations:
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Full Lifecycle
+  artifacthub.io/prerelease: "true"
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/apache-solr/solr
+  artifacthub.io/links: |
+    - name: "Tutorials"
+      url: https://solr.apache.org/operator/resources#tutorials
+  artifacthub.io/signKey: |
+    fingerprint: <fingerprint>
+    url: https://dist.apache.org/repos/dist/release/solr/KEYS
+  # Add change log for a single release here.
+  # Allowed syntax is described at: https://artifacthub.io/docs/topics/annotations/helm/#example
+  artifacthub.io/changes: |
+    - kind: fixed
+      description: Fix bug with named PVCs
+      links:
+        - name: Github Issue
+          url: https://github.com/apache/solr-operator/issues/479
+        - name: Github PR
+          url: https://github.com/apache/solr-operator/pull/481
+    - kind: added
+      description: Support custom annotations on created ServiceAccount
+      links:
+        - name: GitHub PR
+          url: https://github.com/apache/solr-operator/pull/480
+  artifacthub.io/images: |
+    - name: solr-operator
+      image: apache/solr-operator:v0.7.0-prerelease
+  artifacthub.io/crds: |
+    - kind: SolrCloud
+      version: v1beta1
+      name: solrcloud.solr.apache.org
+      displayName: Solr Cloud
+      description: A distributed Solr Cloud cluster
+    - kind: SolrPrometheusExporter
+      version: v1beta1
+      name: solrprometheusexporter.solr.apache.org
+      displayName: Solr Prometheus Exporter
+      description: A Prometheus metrics exporter for Solr
+    - kind: SolrBackup
+      version: v1beta1
+      name: solrbackup.solr.apache.org
+      displayName: Solr Backup
+      description: A backup mechanism for Solr
+  artifacthub.io/crdsExamples: |
+    - apiVersion: solr.apache.org/v1beta1
+      kind: SolrCloud
+      metadata:
+        name: example
+      spec:
+        dataStorage:
+          persistent:
+            reclaimPolicy: Delete
+            pvcTemplate:
+              spec:
+                resources:
+                  requests:
+                    storage: "20Gi"
+        replicas: 3
+        solrImage:
+          tag: 8.11
+        solrJavaMem: "-Xms4g -Xmx4g"
+        customSolrKubeOptions:
+          podOptions:
+            resources:
+              requests:
+                memory: "6G"
+        zookeeperRef:
+          provided:
+            replicas: 3
+        solrOpts: "-Dsolr.autoSoftCommit.maxTime=10000"
+        solrGCTune: "-XX:SurvivorRatio=4 -XX:TargetSurvivorRatio=90 -XX:MaxTenuringThreshold=8"
+        backupRepositories:
+          - name: default-gcs
+            gcs:
+              bucket: solr-gcs-backups
+              gcsCredentialSecret: # Required unless deployed in GKE and using its "Workplace Identity" feature
+                name: gcs-credentials
+                key: "service-account-key.json"
+              baseLocation: "/solrcloud/backups"
+          - name: default-s3
+            s3:
+              region: us-west-2
+              bucket: solr-s3-backups
+              credentials:
+                accessKeyIdSecret: # Optional
+                  name: aws-secrets
+                  key: access-key-id
+                secretAccessKeySecret: # Optional
+                  name: aws-secrets
+                  key: secret-access-key
+    - apiVersion: solr.apache.org/v1beta1
+      kind: SolrPrometheusExporter
+      metadata:
+        name: example
+      spec:
+        solrReference:
+          cloud:
+            name: "example"
+        numThreads: 4
+        image:
+          tag: 8.11
+    - apiVersion: solr.apache.org/v1beta1
+      kind: SolrBackup
+      metadata:
+        name: example
+      spec:
+        repositoryName: solr-gcs-backups
+        solrCloud: example
+        collections:
+          - techproducts
+          - books
+        location: "/this/location"
+  artifacthub.io/containsSecurityUpdates: "false"
